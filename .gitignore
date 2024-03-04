@@ -81,6 +81,7 @@ web_modules/
 
 # wrangler dotenv
 .dev.vars
+.prod.vars
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
