@@ -3,13 +3,11 @@ import type { FC } from 'hono/jsx'
 import type { AcceptedAnswerWebhookResponse, PartialPostResponse } from "./types"
 
 type Env = {
-  CACHE: KVNamespace
   CANNED_ID: string
   DEFAULT_RESPONSE: string
   DISCOURSE_TOKEN: string
   DISCOURSE_URL: string
   QUEUE: Queue<string>
-  WEBHOOK_URL: string
 }
 
 const replaceParamsInResponse = (message, params) => {
@@ -37,7 +35,7 @@ const discourseRequest = async (url: string, method: string, headersToMerge: Rec
   }).catch((err: any) => console.log(err.toString()))
 }
 
-const replyToThread = async (payload: any, env: Env, cannedResponse: string): Promise<void> => {
+const sendFollowupMessage = async (payload: any, env: Env, cannedResponse: string): Promise<void> => {
   const discourseUrl = env.DISCOURSE_URL
   const path = `posts.json`
   const url = [discourseUrl, path].join('/')
@@ -55,6 +53,11 @@ const replyToThread = async (payload: any, env: Env, cannedResponse: string): Pr
   const username = opJson?.details?.created_by?.username
   const originalPoster = username ? `@${username}` : "there"
 
+  if (username === payload.username) {
+    console.log("User marked their own answer as the solution, skipping.")
+    return
+  }
+
   const link = `${discourseUrl}/t/${topic}/${post}`
 
   const parameterizedResponse = replaceParamsInResponse(cannedResponse, {
@@ -63,9 +66,10 @@ const replyToThread = async (payload: any, env: Env, cannedResponse: string): Pr
   })
 
   const body = {
-    category_id: parseInt(category),
-    topic_id: parseInt(topic),
+    archetype: "private_message",
+    target_recipients: username,
     raw: parameterizedResponse,
+    title: "Someone has answered your topic"
   }
 
   const resp = await discourseRequest(url, "POST", headers, JSON.stringify(body), env)
@@ -74,44 +78,34 @@ const replyToThread = async (payload: any, env: Env, cannedResponse: string): Pr
   } else {
     console.log("Something went wrong")
   }
+
+  return resp
 }
 
 const getCannedResponse = async (env: Env): Promise<string> => {
   console.log("Retrieving canned response")
   try {
-    const expirationTtl = 60 * 60
-    const cachedCanned = await env.CACHE.get("canned_response")
+    const cannedId = env.CANNED_ID
+    const discourseUrl = env.DISCOURSE_URL
 
-    if (false) {
-    // if (cachedCanned) {
-      console.log("Got cached response, returning")
-      return cachedCanned
-    } else {
-      const cannedId = env.CANNED_ID
-      const discourseUrl = env.DISCOURSE_URL
+    const path = `posts/${cannedId}.json`
+    const url = [discourseUrl, path].join('/')
 
-      const path = `posts/${cannedId}.json`
-      const url = [discourseUrl, path].join('/')
-
-      const headers = {
-        'Api-Key': env.DISCOURSE_TOKEN,
-        'Api-Username': env.DISCOURSE_USER
-      }
-
-      console.log("Making Discourse request for canned response")
-      const resp = await discourseRequest(url, "GET", headers, env) as PartialPostResponse
-      const json = await resp.json()
-
-      const { raw } = json
-
-      console.log(`Got canned message: ${raw}`)
-
-      console.log("Persisting in cache")
-      await env.CACHE.put("canned_response", raw, { expirationTtl })
-
-      console.log("Returning canned response")
-      return raw
+    const headers = {
+      'Api-Key': env.DISCOURSE_TOKEN,
+      'Api-Username': env.DISCOURSE_USER
     }
+
+    console.log("Making Discourse request for canned response")
+    const resp = await discourseRequest(url, "GET", headers, env) as PartialPostResponse
+    const json = await resp.json()
+
+    const { raw } = json
+
+    console.log(`Got canned message: ${raw}`)
+
+    console.log("Returning canned response")
+    return raw
   } catch (err) {
     console.log("Something went wrong retrieving the canned response, returning default")
     return env.DEFAULT_RESPONSE
@@ -176,7 +170,7 @@ const queue = async (batch: Array<string>, env: Env) => {
   for (const message of batch.messages) {
     const body = JSON.parse(message.body)
     console.log(`Handling ${body.topic_id} in batch`)
-    await replyToThread(body, env, cannedResponse)
+    await sendFollowupMessage(body, env, cannedResponse)
   }
 }
 
