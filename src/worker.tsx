@@ -67,7 +67,6 @@ const sendFollowupMessage = async (payload: any, env: Env, cannedResponse: strin
 
   const body = {
     archetype: "private_message",
-    auto_lock_pm: true,
     target_recipients: username,
     raw: parameterizedResponse,
     title: "Someone has answered your topic"
