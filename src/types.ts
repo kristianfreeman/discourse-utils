@@ -1,3 +1,11 @@
+type Env = {
+  CANNED_ID: string
+  DEFAULT_RESPONSE: string
+  DISCOURSE_TOKEN: string
+  DISCOURSE_URL: string
+  QUEUE: Queue<string>
+}
+
 type AcceptedAnswerWebhookResponse = {
   solved: {
     id: number,
@@ -54,5 +62,6 @@ type PartialPostResponse = {
 
 export type {
   AcceptedAnswerWebhookResponse,
+  Env,
   PartialPostResponse
 }
