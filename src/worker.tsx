@@ -1,5 +1,5 @@
 import type { FC } from 'hono/jsx'
-import type { AcceptedAnswerWebhookResponse, Env, PartialPostResponse } from "./types"
+import type { Env } from "./types"
 import { Hono } from "hono"
 import { acceptedAnswerWebhook, queue } from "./modules/auto_reply"
 

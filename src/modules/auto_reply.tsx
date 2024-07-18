@@ -1,3 +1,4 @@
+import type { AcceptedAnswerWebhookResponse, Env, PartialPostResponse } from "../types"
 import { discourseRequest } from "../utils"
 
 const replaceParamsInResponse = (message, params) => {
